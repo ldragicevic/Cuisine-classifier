@@ -28,3 +28,17 @@
 #
 # # tmp = wn.synsets(w)[0].pos()
 # # print(w, ":", tmp)
+
+measurements = [
+    {'city': 'Dubai', 'temperature': 33.},
+    {'city': 'London', 'temperature': 12.},
+    {'city': 'San Francisco', 'temperature': 18.},
+]
+
+from sklearn.feature_extraction import DictVectorizer
+
+vec = DictVectorizer()
+
+vec.fit_transform(measurements).toarray()
+
+print(vec.get_feature_names())

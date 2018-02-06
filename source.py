@@ -1,47 +1,38 @@
-import pandas as pd
-import numpy as np
-from sklearn.feature_extraction.text import *
-from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.ensemble import RandomForestClassifier
-from preprocessing import *
 import re
-
-
-def processSingleIngredient(word):
-
-    //return re.sub('[^a-zA-Z]+', '', word).lower()
-
+import pandas as pd
+from sklearn.svm import LinearSVC
+from nltk import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 pd.set_option('display.expand_frame_repr', False)
 
-train_df = pd.read_json('input/train.json')
-train_df['ingredients_string'] = [processSingleIngredient(w) for w in train_df['ingredients']]
+lemmatizer = WordNetLemmatizer()
+regex = re.compile('[^a-zA-Z]')
 
-count_vectorizer = CountVectorizer(analyzer='word', stop_words='english', preprocessor=processSingleIngredient,
-                                   max_df=1,
-                                   min_df=1)
+# Load data
+train_data = pd.read_json('input/train.json')
+test_data = pd.read_json('input/test.json')
 
-X_train_counts = count_vectorizer.fit_transform(train_df['ingredients_string']).toarray()
+# Clean data
+train_data['ingredients_str'] = [regex.sub(' ', ' '.join(w).strip()).lower() for w in train_data['ingredients']]
+train_data['ingredients_clean'] = [' '.join([lemmatizer.lemmatize(w) for w in line.split(' ')]) for line in
+                                   train_data['ingredients_str']]
 
-print(X_train_counts)
-exit(-1)
+test_data['ingredients_str'] = [regex.sub(' ', ' '.join(w).strip()).lower() for w in test_data['ingredients']]
+test_data['ingredients_clean'] = [' '.join([lemmatizer.lemmatize(w) for w in line.split(' ')]) for line in
+                                  test_data['ingredients_str']]
 
-tfidf_transformer = TfidfTransformer()
-X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+tfidf = TfidfVectorizer(analyzer='word', ngram_range=(1, 1), stop_words='english', token_pattern=r'\w+',
+                        max_df=0.57, max_features=2 ** 12, use_idf=True, norm='l2')
+train_tfidf = tfidf.fit_transform(train_data['ingredients_clean']).todense()
+train_target = train_data['cuisine']
 
-# clf = MultinomialNB().fit(X_train_tfidf, train_df['cuisine'])
-clf = RandomForestClassifier().fit(X_train_tfidf, train_df['cuisine'])
+test_tfidf = tfidf.transform(test_data['ingredients_clean']).todense()
 
-test_df = pd.read_json('input/test.json')
-prepare_input_data(test_df)
+classifier = LinearSVC(dual=False, penalty='l2', C=0.85)
+classifier.fit(train_tfidf, train_target)
 
-X_test_counts = count_vect.transform(test_df['ingredients_string'])
-X_test_tfidf = tfidf_transformer.transform(X_test_counts)
+predictions = classifier.predict(test_tfidf)
 
-predicted = clf.predict(X_test_tfidf)
-for i in range(0, 10):
-    print(predicted[i])
-
-output = pd.DataFrame(data={"id": test_df["id"], "cuisine": predicted})
-output.to_csv("luka_randomforest.csv", index=False, quoting=3)
+test_data['cuisine'] = predictions
+test_data[['id', 'cuisine']].to_csv('LUKAAA1.csv', index=False)
